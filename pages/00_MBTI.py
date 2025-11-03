@@ -1,131 +1,186 @@
-# streamlit_mbti_final.py
 import streamlit as st
-import urllib.parse
-import urllib.request
-import json
-from typing import Optional
 
-st.set_page_config(page_title="MBTI 책&영화 추천", layout="centered")
-st.title("📚🎬 MBTI별 맞춤 책 & 영화 추천!")
-
-st.write("이미지 문제 개선! 책은 텍스트 중심, 영화 마지막 작품만 포스터 보여줘요 😄")
-
-# --------------------------------------
-# 추천 데이터 (책 2 + 영화 2)
-# --------------------------------------
-mbti_media = {
-    "ISTJ": {
+# MBTI 추천 데이터
+recommendations = {
+    "INTJ": {
         "books": [
-            ("데미안", "헤르만 헤세"),
-            ("총, 균, 쇠", "재레드 다이아몬드")
+            "C: <생각의 탄생>",
+            "C: <총균쇠>"
         ],
         "movies": [
-            ("인셉션", "Inception"),
-            ("인터스텔라", "Interstellar")
+            {"title": "인터스텔라", "poster": "https://m.media-amazon.com/images/I/71nJcZyQHDL._AC_SY679_.jpg"},
+            {"title": "이미테이션 게임", "poster": None}
+        ]
+    },
+    "INTP": {
+        "books": [
+            "C: <코스모스>",
+            "C: <사피엔스>"
+        ],
+        "movies": [
+            {"title": "매트릭스", "poster": "https://m.media-amazon.com/images/I/51EG732BV3L._AC_SY679_.jpg"},
+            {"title": "인셉션", "poster": None}
+        ]
+    },
+    "ENTJ": {
+        "books": [
+            "C: <손자병법>",
+            "C: <칭기즈칸>"
+        ],
+        "movies": [
+            {"title": "월 스트리트", "poster": "https://m.media-amazon.com/images/I/81eR8t2jcFL._AC_SL1500_.jpg"},
+            {"title": "머니볼", "poster": None}
+        ]
+    },
+    "ENTP": {
+        "books": [
+            "C: <호모 데우스>",
+            "C: <괴델, 에셔, 바흐>"
+        ],
+        "movies": [
+            {"title": "아이언맨", "poster": "https://m.media-amazon.com/images/I/81w0Jc7sQ3L._AC_SL1500_.jpg"},
+            {"title": "셜록 홈즈", "poster": None}
         ]
     },
     "INFJ": {
         "books": [
-            ("연금술사", "파울로 코엘료"),
-            ("멈추면, 비로소 보이는 것들", "혜민 스님")
+            "C: <연금술사>",
+            "C: <데미안>"
         ],
         "movies": [
-            ("어바웃 타임", "About Time_(2013_film)"),
-            ("월-E", "WALL-E")
+            {"title": "어바웃 타임", "poster": "https://m.media-amazon.com/images/I/71w+PFl9z0L._AC_SY606_.jpg"},
+            {"title": "인생은 아름다워", "poster": None}
         ]
     },
     "INFP": {
         "books": [
-            ("해리 포터와 마법사의 돌", "J. K. 롤링"),
-            ("미드나잇 라이브러리", "매트 헤이그")
+            "C: <너의 췌장을 먹고 싶어>",
+            "C: <시네마 천국>"
         ],
         "movies": [
-            ("조제, 호랑이 그리고 물고기들", "Josee,_the_Tiger_and_the_Fish"),
-            ("라라랜드", "La_La_Land")
+            {"title": "월-E", "poster": "https://m.media-amazon.com/images/I/81z8XZGqerL._AC_SY679_.jpg"},
+            {"title": "코코", "poster": None}
         ]
     },
-    "INTJ": {
+    "ENFJ": {
         "books": [
-            ("사피엔스", "유발 하라리"),
-            ("코스모스", "칼 세이건")
+            "C: <사람을 얻는 기술>",
+            "C: <하버드 사람들은 어떻게 명확하게 말하는가>"
         ],
         "movies": [
-            ("다크 나이트", "The_Dark_Knight_(film)"),
-            ("인터스텔라", "Interstellar")
+            {"title": "파운더", "poster": "https://m.media-amazon.com/images/I/61YNuYeMoDL._AC_SY679_.jpg"},
+            {"title": "히든 피겨스", "poster": None}
         ]
     },
+    "ENFP": {
+        "books": [
+            "C: <가벼움의 시대>",
+            "C: <지적 대화를 위한 넓고 얕은 지식>"
+        ],
+        "movies": [
+            {"title": "라라랜드", "poster": "https://m.media-amazon.com/images/I/81jKnz8dOFp._AC_SY679_.jpg"},
+            {"title": "월터의 상상은 현실이 된다", "poster": None}
+        ]
+    },
+    "ISTJ": {
+        "books": [
+            "C: <원칙>",
+            "C: <나는 어떻게 일하는가>"
+        ],
+        "movies": [
+            {"title": "덩케르크", "poster": "https://m.media-amazon.com/images/I/91vZt+8CAEL._AC_SL1500_.jpg"},
+            {"title": "체르노빌(시리즈)", "poster": None}
+        ]
+    },
+    "ISFJ": {
+        "books": [
+            "C: <죽은 시인의 사회>",
+            "C: <미움받을 용기>"
+        ],
+        "movies": [
+            {"title": "인턴", "poster": "https://m.media-amazon.com/images/I/71C2q5ogZ0L._AC_SY679_.jpg"},
+            {"title": "월터의 상상은 현실이 된다", "poster": None}
+        ]
+    },
+    "ESTJ": {
+        "books": [
+            "C: <성공하는 사람들의 7가지 습관>",
+            "C: <원씽>"
+        ],
+        "movies": [
+            {"title": "미션 임파서블", "poster": "https://m.media-amazon.com/images/I/71MK7pjdAlL._AC_SY879_.jpg"},
+            {"title": "글래디에이터", "poster": None}
+        ]
+    },
+    "ESFJ": {
+        "books": [
+            "C: <하트 시그널>",
+            "C: <말 그릇>"
+        ],
+        "movies": [
+            {"title": "러브 액츄얼리", "poster": "https://m.media-amazon.com/images/I/71+vJkEpQfL._AC_SY679_.jpg"},
+            {"title": "굿윌헌팅", "poster": None}
+        ]
+    },
+    "ISTP": {
+        "books": [
+            "C: <오리지널스>",
+            "C: <괴짜 경제학>"
+        ],
+        "movies": [
+            {"title": "007 스카이폴", "poster": "https://m.media-amazon.com/images/I/81GEXZcYH9L._AC_SY679_.jpg"},
+            {"title": "본 시리즈", "poster": None}
+        ]
+    },
+    "ISFP": {
+        "books": [
+            "C: <바람의 그림자>",
+            "C: <모모>"
+        ],
+        "movies": [
+            {"title": "가디언즈 오브 갤럭시", "poster": "https://m.media-amazon.com/images/I/91YQgWcxdRL._AC_SY679_.jpg"},
+            {"title": "500일의 썸머", "poster": None}
+        ]
+    },
+    "ESTP": {
+        "books": [
+            "C: <부자 아빠 가난한 아빠>",
+            "C: <넛지>"
+        ],
+        "movies": [
+            {"title": "분노의 질주", "poster": "https://m.media-amazon.com/images/I/81HFqRSbVwL._AC_SY679_.jpg"},
+            {"title": "테이큰", "poster": None}
+        ]
+    },
+    "ESFP": {
+        "books": [
+            "C: <배움의 발견>",
+            "C: <파티피플>"
+        ],
+        "movies": [
+            {"title": "맘마미아!", "poster": "https://m.media-amazon.com/images/I/81KXOkGg91L._AC_SY879_.jpg"},
+            {"title": "위대한 쇼맨", "poster": None}
+        ]
+    }
 }
 
-PLACEHOLDER = "https://via.placeholder.com/300x450?text=No+Poster"
+st.title("📚 MBTI 책 & 영화 추천 🍿")
 
-# --------------------------------------
-# 영화 포스터 가져오기 (Wikipedia)
-# --------------------------------------
-@st.cache_data(show_spinner=False)
-def get_movie_poster(title_slug: str) -> Optional[str]:
-    """영화 포스터를 Wikipedia Summary API로 가져오기"""
-    try:
-        slug = urllib.parse.quote(title_slug)
-        url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{slug}"
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-            if "originalimage" in data:
-                return data["originalimage"]["source"]
-            if "thumbnail" in data:
-                return data["thumbnail"]["source"]
-    except Exception:
-        return None
-    return None
+mbti = st.selectbox("당신의 MBTI는?", list(recommendations.keys()))
 
-# --------------------------------------
-# 한 줄 서평 & 영화평 생성
-# --------------------------------------
-def gen_book_comment(title: str) -> str:
-    return f"『{title}』 — 너만의 감정을 더 깊게 들여다볼 수 있을걸? ✨"
+if mbti:
+    st.subheader(f"📖 책 추천 for {mbti}")
+    for book in recommendations[mbti]["books"]:
+        st.write(book)
 
-def gen_movie_comment(title: str) -> str:
-    return f"『{title}』 — 분위기 푹 빠져서 보면 인생영화 될 수도! 🎬"
+    st.subheader(f"🎬 영화 추천 for {mbti}")
+    
+    # 첫번째 영화 포스터 이미지
+    movie1 = recommendations[mbti]["movies"][0]
+    st.write(movie1["title"])
+    if movie1["poster"]:
+        st.image(movie1["poster"], width=250)
 
-
-# --------------------------------------
-# UI
-# --------------------------------------
-selected_mbti = st.selectbox("👉 MBTI 선택!", sorted(mbti_media.keys()))
-
-if selected_mbti:
-    st.write("---")
-    st.markdown(f"## 🌟 {selected_mbti} 추천 세트 🌟")
-
-    rec = mbti_media[selected_mbti]
-
-    # BOOKS
-    st.subheader("📚 책 추천 2선")
-    for title, author in rec["books"]:
-        st.markdown(f"**{title}** — _{author}_")
-        st.write(gen_book_comment(title))
-        st.write("")  # spacing
-
-    st.write("---")
-
-    # MOVIES
-    st.subheader("🎬 영화 추천 2선")
-
-    # 첫 번째: 포스터 없음
-    first_movie_name, _ = rec["movies"][0]
-    st.markdown(f"**🎞 {first_movie_name}** (텍스트 추천)")
-    st.write(gen_movie_comment(first_movie_name))
-    st.write("")
-
-    # 두 번째: 포스터 있음
-    second_movie_name, slug = rec["movies"][1]
-    st.markdown(f"**🍿 {second_movie_name}** (포스터 맞춰왔지!)")
-    poster = get_movie_poster(slug)
-    if poster:
-        st.image(poster, use_column_width=True)
-    else:
-        st.image(PLACEHOLDER, use_column_width=True)
-    st.write(gen_movie_comment(second_movie_name))
-
-    st.write("---")
-    st.success("추천 끝! 더 원하는 MBTI도 골라봐 😄")
+    # 두번째 영화는 텍스트만
+    movie2 = recommendations[mbti]["movies"][1]
+    st.write(movie2["title"])
