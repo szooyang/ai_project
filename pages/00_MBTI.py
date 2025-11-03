@@ -1,189 +1,139 @@
 import streamlit as st
+import urllib.parse
+import urllib.request
+import json
 
-st.set_page_config(page_title="MBTI 추천 도서 & 영화 🎬📚")
+st.set_page_config(page_title="MBTI 추천 도서 & 영화", layout="centered")
+st.title("📚🎬 MBTI별 도서 & 영화 추천")
+st.write("너의 MBTI를 고르면 취향저격 추천을 해줄게! 😎")
 
-st.title("📚 MBTI별 책 & 영화 추천 🎬")
-st.write("너의 MBTI를 선택하면 찰떡같은 추천을 해줄게! 😎✨")
-
-mbti_list = [
-    "ISTJ","ISFJ","INFJ","INTJ",
-    "ISTP","ISFP","INFP","INTP",
-    "ESTP","ESFP","ENFP","ENTP",
-    "ESTJ","ESFJ","ENFJ","ENTJ"
-]
-
-recommend_data = {
-    "ISTJ": {
-        "books": [
-            ("데미안 - 헤르만 헤세", "자기 원칙을 지키는 너에게 성장에 대한 깊은 성찰을 선물해줘 📘"),
-            ("총, 균, 쇠 - 재러드 다이아몬드", "세상을 논리적으로 바라보는 ISTJ의 지적 호기심을 만족시켜줄 책 📚")
-        ],
-        "movies": [
-            ("인셉션", "빈틈 없이 완벽을 추구하는 너에게 딱 맞는 두뇌 풀가동 영화 🧠"),
-            ("셜록 홈즈", "추리력 MAX! 분석형 ISTJ가 좋아할 최고의 미스터리 🔍")
-        ]
-    },
-    "ISFJ": {
-        "books": [
-            ("작은 아씨들 - 루이자 메이 올컷", "가족과 따뜻한 관계를 소중히 여기는 너에게 잔잔한 울림 💖"),
-            ("파친코 - 이민진", "삶의 무게와 사랑을 섬세하게 담아 감성 충전 ✨")
-        ],
-        "movies": [
-            ("플립", "수줍지만 다정한 성격에 딱 맞는 첫사랑 감성 🍒"),
-            ("겨울왕국", "희생과 사랑에 공감하는 ISFJ의 마음을 울리는 이야기 ❄️")
-        ]
-    },
-    "INFJ": {
-        "books": [
-            ("연금술사 - 파울로 코엘료", "꿈을 향한 여정 속에서 자기 의미를 찾는 INFJ의 이야기 ✨"),
-            ("죽음에 관하여 - 어빈 얄롬", "내면 깊이 탐구하는 너에게 가슴 울리는 통찰 💭")
-        ],
-        "movies": [
-            ("어바웃 타임", "사랑과 삶의 의미를 찾는 너에게 힐링 영화 ❤️"),
-            ("월터의 상상은 현실이 된다", "꿈꾸는 자에게 용기를 주는 격려 메시지 🌈")
-        ]
-    },
-    "INTJ": {
-        "books": [
-            ("인간 본성에 대하여 - 스티븐 핑커", "지적 호기심이 넘치는 전략가 INTJ에게 딱! 🧠"),
-            ("사피엔스 - 유발 하라리", "인류를 바라보는 큰 그림에 완벽한 선택 🌍")
-        ],
-        "movies": [
-            ("인터스텔라", "논리와 감성을 모두 자극하는 명작 SF 🚀"),
-            ("매트릭스", "세상을 의심하는 너에게 최고의 철학 액션 🤖")
-        ]
-    },
-    "ISTP": {
-        "books": [
-            ("모모 - 미하엘 엔데", "조용한 관찰자 ISTP에게 잔잔한 생각의 여지 🎧"),
-            ("나는 나로 살기로 했다 - 김수현", "자기만의 길을 걷는 너에게 응원 메시지 ✊")
-        ],
-        "movies": [
-            ("분노의 질주", "액션 좋아하는 ISTP에게 엔진 풀가동 🔥"),
-            ("본 아이덴티티", "치밀한 액션과 두뇌 싸움 완벽 조합 🕵️")
-        ]
-    },
-    "ISFP": {
-        "books": [
-            ("아몬드 - 손원평", "섬세한 감정선을 가진 너에게 찐 감동 전달 💓"),
-            ("보건교사 안은영 - 정세랑", "감성+독창적 세계관 완전 취향 저격 ✨")
-        ],
-        "movies": [
-            ("비긴 어게인", "예술 감성 폭발하는 힐링 뮤직무비 🎸"),
-            ("라라랜드", "꿈과 사랑 사이에서 고민하는 너에게 🎶")
-        ]
-    },
-    "INFP": {
-        "books": [
-            ("나미야 잡화점의 기적 - 히가시노 게이고", "상처를 감싸주는 우정과 힐링 스토리 🍀"),
-            ("해리 포터 - J.K. 롤링", "상상력 최고인 INFP의 영원한 판타지 ✨")
-        ],
-        "movies": [
-            ("월-E", "순수하고 사랑스러운 감성 100% 충전 ❤️"),
-            ("코코", "가족과 기억에 대한 감동적인 메시지 🎸")
-        ]
-    },
-    "INTP": {
-        "books": [
-            ("코스모스 - 칼 세이건", "우주의 원리를 탐구하는 생각러에게 딱 🌌"),
-            ("생각에 관한 생각 - 다니엘 카너먼", "사고방식 분석 좋아하는 INTP에게 필독서 🔍")
-        ],
-        "movies": [
-            ("소셜 네트워크", "천재적인 발상과 혁신 스토리, 완전 취향템 💻"),
-            ("트루먼 쇼", "진실을 파헤치는 너의 질문 정신과 찰떡 🎭")
-        ]
-    },
-    "ESTP": {
-        "books": [
-            ("침묵의 봄 - 레이첼 카슨", "세상에 영향 주고 싶어하는 ESTP에게 도전 메시지 🌱"),
-            ("82년생 김지영 - 조남주", "현실 문제 직시하는 너의 성향에 딱 맞아 💥")
-        ],
-        "movies": [
-            ("아바타", "스케일 큰 액션+모험 완벽 조화 🌍"),
-            ("007 스카이폴", "쿨+과감함 가득한 스파이 액션 🔫")
-        ]
-    },
-    "ESFP": {
-        "books": [
-            ("달러구트 꿈 백화점 - 이미예", "상상력 자극하는 판타지로 에너지 충전 ✨"),
-            ("미드나잇 라이브러리 - 매트 헤이그", "다양한 삶의 가능성을 꿈꾸는 너에게 🌃")
-        ],
-        "movies": [
-            ("맘마미아!", "즐거움 + 노래 + 여행 = 완전 ESFP 스타일 🎤"),
-            ("인사이드 아웃", "감정을 중요하게 생각하는 너에게 💛")
-        ]
-    },
-    "ENFP": {
-        "books": [
-            ("미움받을 용기 - 기시미 이치로", "자유로운 너에게 진짜 행복을 묻는 책 🌱"),
-            ("오늘도 펭수, 내일도 펭수", "밝고 유쾌한 에너지를 더 끌어올려 😆")
-        ],
-        "movies": [
-            ("해리 포터 시리즈", "모험과 우정 사랑을 중시하는 성향에 딱! 🧙‍♂️"),
-            ("주토피아", "편견을 깨는 변화의 메시지에 공감할 너에게 🐰")
-        ]
-    },
-    "ENTP": {
-        "books": [
-            ("총, 균, 쇠 - 재러드 다이아몬드", "토론 좋아하는 너에게 논쟁거리 가득 📚"),
-            ("멀티플라이어 - 주창윤", "혁신적인 사고방식에 영감을 주는 책 ⚡")
-        ],
-        "movies": [
-            ("아이언맨", "발명+창의력 = 너 자신 같아 😎"),
-            ("빅쇼트", "세상을 비틀어 보는 너에게 딱 맞는 풍자 🎯")
-        ]
-    },
-    "ESTJ": {
-        "books": [
-            ("1cm 다이빙 - 태수, 문지민", "성취에 집중하다 지칠 때 잠깐 쉬어가자 🌊"),
-            ("트렌드 코리아", "미래를 계획하고 주도하는 ESTJ에게 필수 🧭")
-        ],
-        "movies": [
-            ("캡틴 아메리카", "정의감 넘치는 ESTJ의 히어로 상징 🛡️"),
-            ("머니볼", "전략적으로 일을 처리하는 너의 스타일 👍")
-        ]
-    },
-    "ESFJ": {
-        "books": [
-            ("훈민정음의 길 - 신영복", "공감 능력 뛰어난 너에게 관계와 소통의 깊이를 + 📖"),
-            ("사랑의 기술 - 에리히 프롬", "사람을 누구보다 소중히하는 너에게 ❤️")
-        ],
-        "movies": [
-            ("인턴", "다정한 소통왕 ESFJ에게 찡한 이야기 🤝"),
-            ("사랑과 영혼", "로맨틱 감성 FULL 충전 💞")
-        ]
-    },
-    "ENFJ": {
-        "books": [
-            ("정의란 무엇인가 - 마이클 샌델", "사람과 사회를 생각하는 너에게 깊은 질문 ⚖️"),
-            ("멈추면, 비로소 보이는 것들 - 혜민", "타인을 챙기느라 바쁜 너에게 쉼을 😌")
-        ],
-        "movies": [
-            ("굿 윌 헌팅", "사람의 가능성을 보는 너의 시선과 딱! 🌟"),
-            ("리틀 포레스트", "마음과 관계를 회복하는 힐링 영화 🌿")
-        ]
-    },
-    "ENTJ": {
-        "books": [
-            ("원씽 - 게리 켈러", "목표 지향적인 너에게 초집중 전략 🔥"),
-            ("넛지 - 탈러 & 선스타인", "세상을 움직이는 힘에 대한 인사이트 💡")
-        ],
-        "movies": [
-            ("다크 나이트", "리더십과 책임의 무게를 그린 명작 🦇"),
-            ("킹스맨", "쿨하고 카리스마 있는 ENTJ 그 자체 😎")
-        ]
-    },
+# ======================
+# 데이터 매핑
+# ======================
+mbti_media = {
+    "ISTJ": ("Demian", "Hermann Hesse", "Inception", "Inception_(film)"),
+    "ISFJ": ("Little Women", "Louisa May Alcott", "Frozen", "Frozen_(2013_film)"),
+    "INFJ": ("The Alchemist", "Paulo Coelho", "About Time", "About_Time_(2013_film)"),
+    "INTJ": ("Sapiens", "Yuval Noah Harari", "Interstellar", "Interstellar"),
+    "ISTP": ("Momo", "Michael Ende", "The Bourne Identity", "The_Bourne_Identity_(film)"),
+    "ISFP": ("Almond", "Son Won-pyung", "La La Land", "La_La_Land"),
+    "INFP": ("Harry Potter and the Sorcerer's Stone", "J. K. Rowling", "WALL·E", "WALL-E"),
+    "INTP": ("Cosmos", "Carl Sagan", "The Social Network", "The_Social_Network"),
+    "ESTP": ("Silent Spring", "Rachel Carson", "Avatar", "Avatar_(2009_film)"),
+    "ESFP": ("The Midnight Library", "Matt Haig", "Mamma Mia!", "Mamma_Mia!"),
+    "ENFP": ("The Courage to Be Disliked", "Ichiro Kishimi", "Zootopia", "Zootopia"),
+    "ENTP": ("Guns, Germs, and Steel", "Jared Diamond", "Iron Man", "Iron_Man_(2008_film)"),
+    "ESTJ": ("Trend Korea", "Various", "Moneyball", "Moneyball"),
+    "ESFJ": ("The Art of Loving", "Erich Fromm", "The Intern", "The_Intern_(2015_film)"),
+    "ENFJ": ("Justice: What's the Right Thing to Do?", "Michael J. Sandel", "Good Will Hunting", "Good_Will_Hunting"),
+    "ENTJ": ("The One Thing", "Gary Keller", "The Dark Knight", "The_Dark_Knight_(film)"),
 }
 
-selected_mbti = st.selectbox("👉 MBTI 선택!", mbti_list)
+PLACEHOLDER = "https://via.placeholder.com/300x450?text=No+Image"
+
+# ======================
+# Helper Functions
+# ======================
+def fetch_json(url, timeout=8):
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            data = resp.read()
+            return json.loads(data.decode("utf-8"))
+    except Exception:
+        return None
+
+def get_book_cover_url(title, author=None):
+    try:
+        q = f"intitle:{title}"
+        if author:
+            q += f"+inauthor:{author}"
+        q = urllib.parse.quote(q)
+        url = f"https://www.googleapis.com/books/v1/volumes?q={q}&maxResults=5"
+        data = fetch_json(url)
+
+        if data and "items" in data:
+            for item in data["items"]:
+                info = item.get("volumeInfo", {})
+                imgs = info.get("imageLinks", {})
+                if "thumbnail" in imgs:
+                    return imgs["thumbnail"].replace("http://", "https://")
+                if "smallThumbnail" in imgs:
+                    return imgs["smallThumbnail"].replace("http://", "https://")
+    except Exception:
+        pass
+    return None
+
+def get_movie_poster_url_from_wikipedia(page_title):
+    try:
+        slug = urllib.parse.quote(page_title)
+        url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{slug}"
+        data = fetch_json(url)
+
+        if data:
+            if "originalimage" in data and "source" in data["originalimage"]:
+                return data["originalimage"]["source"]
+            if "thumbnail" in data and "source" in data["thumbnail"]:
+                return data["thumbnail"]["source"]
+    except Exception:
+        pass
+    return None
+
+def generate_one_line_book_review(mbti, title):
+    if mbti in ("INFJ","INTJ","INFP","INTP"):
+        return f"『{title}』은(는) 너의 깊은 생각과 감성을 촉촉하게 적셔줄 책! ✨"
+    if mbti in ("ISTJ","ISFJ","ISFP","ISTP"):
+        return f"『{title}』은(는) 현실적이면서도 마음을 울리는 스토리! 💛"
+    if mbti in ("ENFP","ENTP","ENTJ","ENFJ"):
+        return f"『{title}』은(는) 인생에 새로운 관점을 선물할 책! 🔥"
+    return f"『{title}』 — 누구든 빠져들 수 있는 매력적인 책! 📖"
+
+def generate_one_line_movie_review(mbti, title):
+    if mbti in ("INTJ","ENTJ","INTP"):
+        return f"『{title}』 — 두뇌 풀가동하며 보면 꿀잼 인정! 🧩"
+    if mbti in ("INFP","ISFP","ESFP","ENFP"):
+        return f"『{title}』 — 감성 제대로 자극하는 잔잔한 여운 🎞️"
+    if mbti in ("ESTP","ENTP","ESTJ","ENFJ"):
+        return f"『{title}』 — 에너지 풀 충전되는 텐션 UP 영화 🔥"
+    return f"『{title}』 — 집중하면 더 재밌는 명작 🍿"
+
+# ======================
+# UI
+# ======================
+selected_mbti = st.selectbox("👉 MBTI 선택!", sorted(mbti_media.keys()))
 
 if selected_mbti:
-    st.subheader(f"✨ {selected_mbti}에게 추천하는 책 📚")
-    for title, desc in recommend_data[selected_mbti]["books"]:
-        st.write(f"🔹 **{title}** — {desc}")
+    book_title, book_author, movie_title, movie_wiki = mbti_media[selected_mbti]
 
-    st.subheader(f"🎬 {selected_mbti}에게 추천하는 영화 🍿")
-    for title, desc in recommend_data[selected_mbti]["movies"]:
-        st.write(f"🎬 **{title}** — {desc}")
+    st.markdown(f"## ✨ {selected_mbti} 추천 콘텐츠")
 
-    st.write("👉 공감되는 작품 하나 골라서 오늘 바로 go? 😎🔥")
+    col_book, col_movie = st.columns(2)
+
+    # --- BOOK ---
+    with col_book:
+        st.subheader("📚 책")
+        st.write(f"**{book_title}** — _{book_author}_")
+
+        img = get_book_cover_url(book_title, book_author)
+        if not img:
+            img = get_book_cover_url(book_title)
+        if not img:
+            img = PLACEHOLDER
+
+        st.image(img, use_column_width=True)
+        st.caption(generate_one_line_book_review(selected_mbti, book_title))
+
+    # --- MOVIE ---
+    with col_movie:
+        st.subheader("🎬 영화")
+        st.write(f"**{movie_title}**")
+
+        poster = get_movie_poster_url_from_wikipedia(movie_wiki)
+        if not poster:
+            poster = PLACEHOLDER
+
+        st.image(poster, use_column_width=True)
+        st.caption(generate_one_line_movie_review(selected_mbti, movie_title))
+
+    st.write("---")
+    st.info("이미지 안 뜨는 경우 말해줘! 더 좋은 데이터로 바로 고쳐줄게 😆🔥")
