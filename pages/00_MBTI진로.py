@@ -2,7 +2,7 @@ import streamlit as st
 
 st.set_page_config(page_title="MBTI 진로 추천 봇", page_icon="🎯")
 
-st.title("🎯 MBTI 진로 추천 봇")
+st.title("🎯 MBTI 진로 추천 봇"
 st.write("너의 MBTI에 맞는 찰떡 진로를 추천해줄게! 😎")
 
 mbti_options = [
