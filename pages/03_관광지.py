@@ -36,29 +36,36 @@ tourist_spots = [
      "subway": "여의나루역"}
 ]
 
-st.set_page_config(page_title="Seoul Top 10 Attractions", layout="wide")
+st.set_page_config(page_title="Seoul Attractions", layout="wide")
 st.title("🌏 외국인들이 좋아하는 서울 관광지 Top 10")
 
 # 지도 생성
 m = folium.Map(location=[37.5665, 126.9780], zoom_start=12)
 
-# 마커 추가 (강조된 아이콘)
+# 마커 추가 (팝업이 선택 값으로 반환됨)
 for spot in tourist_spots:
     folium.Marker(
         location=[spot["lat"], spot["lon"]],
-        popup=f"{spot['name']}",
         tooltip=spot["name"],
+        popup=spot["name"],
         icon=folium.Icon(color="red", icon="info-sign")
     ).add_to(m)
 
-# 지도 표시
-st_folium(m, width=900, height=550)
+# 지도 표시 (현재 선택된 장소 정보 반환)
+map_data = st_folium(m, width=900, height=550)
 
-# 관광지 설명 출력
-st.subheader("📌 관광지 상세 정보")
-for i, spot in enumerate(tourist_spots, start=1):
-    st.markdown(f"""
-    **{i}. {spot['name']}**
-    - ⭐ {spot['desc']}
-    - 🚇 가장 가까운 지하철역: **{spot['subway']}**
-    """)
+# 선택한 관광지 정보 표시
+selected_name = None
+
+if map_data and map_data.get("last_object_clicked"):
+    selected_name = map_data["last_object_clicked"].get("popup")
+
+if selected_name:
+    spot = next((s for s in tourist_spots if s["name"] == selected_name), None)
+    if spot:
+        st.markdown("---")
+        st.subheader(f"📍 {spot['name']}")
+        st.markdown(f"⭐ {spot['desc']}")
+        st.markdown(f"🚇 가장 가까운 지하철역: **{spot['subway']}**")
+else:
+    st.info("👆 지도의 마커를 선택하면 상세 정보가 아래에 표시됩니다!")
