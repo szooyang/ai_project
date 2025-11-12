@@ -12,12 +12,11 @@ POSSIBLE_AGE = ["age", "연령", "나이", "AGE", "Age"]
 POSSIBLE_POP = ["population", "pop", "인구", "인구수", "Population"]
 POSSIBLE_DIST = [
     "district", "adm", "adm_name", "행정구", "행정동", "구",
-    "시군구", "자치구", "지역", "District", "행정구역"  # ✅ 추가됨
+    "시군구", "자치구", "지역", "District", "행정구역"  # ✅ 행정구역 포함
 ]
 
 def read_csv_smart(file_path_or_buf):
     encodings = ["utf-8-sig", "cp949", "utf-8"]
-    last_err = None
     for enc in encodings:
         try:
             if isinstance(file_path_or_buf, (str, Path)):
@@ -27,26 +26,22 @@ def read_csv_smart(file_path_or_buf):
                 data = file_path_or_buf.read()
                 buf = io.BytesIO(data)
                 return pd.read_csv(buf, encoding=enc)
-        except Exception as e:
-            last_err = e
-    raise last_err
+        except Exception:
+            continue
+    st.error("CSV 인코딩을 인식할 수 없습니다.")
+    st.stop()
 
 def guess_col(cols, candidates):
     lower_map = {c.lower(): c for c in cols}
     for cand in candidates:
         if cand.lower() in lower_map:
             return lower_map[cand.lower()]
-    # 부분 일치 fallback
     for c in cols:
         cl = c.lower()
         if any(k in cl for k in ["age", "나이", "연령"]):
             return c
-    for c in cols:
-        cl = c.lower()
         if any(k in cl for k in ["pop", "인구"]):
             return c
-    for c in cols:
-        cl = c.lower()
         if any(k in cl for k in ["district", "행정", "자치", "시군구", "동", "구", "지역", "행정구역"]):
             return c
     return None
@@ -70,11 +65,7 @@ if not Path(DATA_PATH).exists():
     st.error("population.csv 파일을 app.py와 같은 폴더에 두어야 합니다.")
     st.stop()
 
-try:
-    df = read_csv_smart(DATA_PATH)
-except Exception as e:
-    st.error(f"CSV 읽기 실패: {e}")
-    st.stop()
+df = read_csv_smart(DATA_PATH)
 
 # 컬럼 자동 추정
 age_col  = guess_col(df.columns, POSSIBLE_AGE)
@@ -93,18 +84,19 @@ if missing_cols:
 df = df.copy()
 df["__AGE__"]  = ensure_numeric_age(df[age_col])
 df["__POP__"]  = pd.to_numeric(df[pop_col], errors="coerce")
-df["__DIST__"] = df[dist_col].astype(str)
-df = df.dropna(subset=["__AGE__", "__POP__", "__DIST__"])
+df["__DIST__"] = df[dist_col].astype(str).str.strip()
+df = df.dropna(subset=["__AGE__", "__POP__"])
 
-# 행정구역 선택
-districts = sorted(df["__DIST__"].unique().tolist())
-if not districts:
-    st.error("⚠️ 행정구역 데이터가 비어 있습니다.")
+# ✅ 행정구역 리스트 만들기
+districts = sorted([d for d in df["__DIST__"].unique() if isinstance(d, str) and d.strip() != ""])
+if len(districts) == 0:
+    st.warning("⚠️ CSV 파일의 ‘행정구역’ 열에 값이 비어 있습니다. 샘플 데이터를 확인하세요.")
     st.stop()
 
+# ✅ 사용자 선택 가능
 selected = st.selectbox("행정구역 선택", districts, index=0)
 
-# 선택된 행정구역 데이터
+# 선택된 행정구역의 인구구조
 dsel = (
     df[df["__DIST__"] == selected]
       .groupby("__AGE__", as_index=False)["__POP__"]
