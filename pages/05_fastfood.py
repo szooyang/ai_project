@@ -143,48 +143,64 @@ def main():
     # ▣ 건강 점수 Top3 메뉴
     st.subheader(f"🥗 {selected_company} 건강한 메뉴 TOP 3")
 
+    if "health_score" not in company_df.columns or company_df["health_score"].isna().all():
+        st.write("건강 점수를 계산할 수 있는 데이터가 부족합니다.")
+        return
+
     top3 = (
         company_df.sort_values("health_score", ascending=False)
         .head(3)
         .reset_index(drop=True)
     )
-
     top3.insert(0, "순위", [1, 2, 3])
 
-    st.dataframe(
-        top3[
-            [
-                "순위",
-                "Item",
-                "Calories",
-                "Total Fat\n(g)",
-                "Saturated Fat\n(g)",
-                "Trans Fat\n(g)",
-                "Cholesterol\n(mg)",
-                "Sodium \n(mg)",
-                "Carbs\n(g)",
-                "Fiber\n(g)",
-                "Sugars\n(g)",
-                "Protein\n(g)",
-                "health_score",
-            ]
-        ].style.format(
-            {
-                "Calories": "{:.0f}",
-                "Total Fat\n(g)": "{:.1f}",
-                "Saturated Fat\n(g)": "{:.1f}",
-                "Trans Fat\n(g)": "{:.1f}",
-                "Cholesterol\n(mg)": "{:.0f}",
-                "Sodium \n(mg)": "{:.0f}",
-                "Carbs\n(g)": "{:.1f}",
-                "Fiber\n(g)": "{:.1f}",
-                "Sugars\n(g)": "{:.1f}",
-                "Protein\n(g)": "{:.1f}",
-                "health_score": "{:.3f}",
-            },
-            errors="ignore",
-        )
+    show_cols = [
+        "순위",
+        "Item",
+        "Calories",
+        "Total Fat\n(g)",
+        "Saturated Fat\n(g)",
+        "Trans Fat\n(g)",
+        "Cholesterol\n(mg)",
+        "Sodium \n(mg)",
+        "Carbs\n(g)",
+        "Fiber\n(g)",
+        "Sugars\n(g)",
+        "Protein\n(g)",
+        "health_score",
+    ]
+    show_cols = [c for c in show_cols if c in top3.columns]
+
+    top3_display = top3[show_cols].copy()
+
+    # 숫자 컬럼 포맷팅
+    numeric_formats = {
+        "Calories": "{:.0f}",
+        "Total Fat\n(g)": "{:.1f}",
+        "Saturated Fat\n(g)": "{:.1f}",
+        "Trans Fat\n(g)": "{:.1f}",
+        "Cholesterol\n(mg)": "{:.0f}",
+        "Sodium \n(mg)": "{:.0f}",
+        "Carbs\n(g)": "{:.1f}",
+        "Fiber\n(g)": "{:.1f}",
+        "Sugars\n(g)": "{:.1f}",
+        "Protein\n(g)": "{:.1f}",
+        "health_score": "{:.3f}",
+    }
+
+    for col, fmt in numeric_formats.items():
+        if col in top3_display.columns:
+            top3_display[col] = top3_display[col].map(
+                lambda x: fmt.format(x) if pd.notna(x) else ""
+            )
+
+    st.write(
+        "※ 건강 점수는 **칼로리·지방·나트륨·당분은 낮을수록**, "
+        "**식이섬유·단백질은 높을수록** 좋다는 기준으로 계산한 상대적인 점수입니다. (0~1 사이)"
     )
+
+    st.dataframe(top3_display, use_container_width=True)
+
 
 
 if __name__ == "__main__":
