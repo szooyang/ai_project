@@ -20,10 +20,16 @@ def load_data():
 
     df = pd.read_csv(csv_path)
     return df
-
 def add_health_score(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    전체 데이터 기준으로 각 영양소를 0~1 사이로 정규화해서
+    'health_score' 컬럼을 추가합니다.
+    - 나쁠수록 안 좋은 것(칼로리, 지방, 나트륨 등): 값이 낮을수록 점수↑
+    - 좋을수록 좋은 것(식이섬유, 단백질): 값이 클수록 점수↑
+    """
     df = df.copy()
 
+    # 나쁠수록 건강에 안 좋은 항목들
     bad_cols = [
         "Calories",
         "Total Fat\n(g)",
@@ -34,46 +40,75 @@ def add_health_score(df: pd.DataFrame) -> pd.DataFrame:
         "Carbs\n(g)",
         "Sugars\n(g)",
     ]
+
+    # 많을수록 좋은 항목들
     good_cols = [
         "Fiber\n(g)",
         "Protein\n(g)",
     ]
 
+    # 1) 숫자로 강제 변환 (숫자가 아니면 NaN)
     for col in bad_cols + good_cols:
         if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors="ignore")
+            df[col] = pd.to_numeric(df[col], errors="coerce")
 
     score_cols = []
 
-    # 나쁠수록 건강점수 낮음 → 작을수록 좋은 항목
+    # 2) 나쁠수록 안 좋은 항목: 값이 작을수록 건강 점수↑
     for col in bad_cols:
         if col not in df.columns:
             continue
+
         col_data = df[col]
-        min_v, max_v = col_data.min(), col_data.max()
+
+        # 전부 NaN이면 스킵
+        if col_data.notna().sum() == 0:
+            continue
+
+        min_v = col_data.min(skipna=True)
+        max_v = col_data.max(skipna=True)
+
+        # 값이 하나뿐이거나 모두 같은 값이면 정규화 불가 → 스킵
         if pd.isna(min_v) or pd.isna(max_v) or min_v == max_v:
             continue
 
-        norm = (col_data - min_v) / (max_v - min_v)
-        df[f"_score_{col}"] = 1 - norm
-        score_cols.append(f"_score_{col}")
+        norm = (col_data - min_v) / (max_v - min_v)   # 0~1
+        score = 1 - norm                              # 값이 작을수록 점수↑
 
-    # 많을수록 건강점수 높은 항목
+        score_col_name = f"_score_{col}"
+        df[score_col_name] = score
+        score_cols.append(score_col_name)
+
+    # 3) 많을수록 좋은 항목: 값이 클수록 건강 점수↑
     for col in good_cols:
         if col not in df.columns:
             continue
+
         col_data = df[col]
-        min_v, max_v = col_data.min(), col_data.max()
+
+        if col_data.notna().sum() == 0:
+            continue
+
+        min_v = col_data.min(skipna=True)
+        max_v = col_data.max(skipna=True)
+
         if pd.isna(min_v) or pd.isna(max_v) or min_v == max_v:
             continue
 
-        df[f"_score_{col}"] = (col_data - min_v) / (max_v - min_v)
-        score_cols.append(f"_score_{col}")
+        score = (col_data - min_v) / (max_v - min_v)  # 값이 클수록 점수↑
 
+        score_col_name = f"_score_{col}"
+        df[score_col_name] = score
+        score_cols.append(score_col_name)
+
+    # 4) 개별 스코어 평균 → health_score
     if score_cols:
-        df["health_score"] = df[score_cols].mean(axis=1)
+        df["health_score"] = df[score_cols].mean(axis=1, skipna=True)
+    else:
+        df["health_score"] = np.nan
 
     return df
+
 
 
 def main():
