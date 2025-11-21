@@ -6,8 +6,15 @@ import plotly.express as px
 # 데이터 불러오기 (pages 폴더 기준 → CSV는 상위 폴더)
 @st.cache_data
 def load_data():
-    df = pd.read_csv("../fastfood.csv", encoding="utf-8")
+#    df = pd.read_csv("../fastfood.csv", encoding="utf-8")
+
+
+    base_dir = Path(__file__).resolve().parent.parent
+    csv_path = base_dir / "fastfood.csv"
+
+    df = pd.read_csv(csv_path, encoding="cp949")
     return df
+
 
 
 def add_health_score(df: pd.DataFrame) -> pd.DataFrame:
