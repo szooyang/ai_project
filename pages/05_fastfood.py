@@ -2,20 +2,24 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
+from pathlib import Path   # ✅ 이 줄 추가!
 
-# 데이터 불러오기 (pages 폴더 기준 → CSV는 상위 폴더)
 @st.cache_data
 def load_data():
-#    df = pd.read_csv("../fastfood.csv", encoding="utf-8")
-
-
+    # 현재 파일: /mount/src/ai_project/pages/05_fastfood.py
+    # base_dir:  /mount/src/ai_project
     base_dir = Path(__file__).resolve().parent.parent
-    csv_path = base_dir / "fastfood.csv"
+    csv_path = base_dir / "fastfood.csv"   # ✅ fastfood.csv는 프로젝트 루트에 있다고 가정
 
-    df = pd.read_csv(csv_path, encoding="cp949")
+    if not csv_path.exists():
+        st.error(
+            f"fastfood.csv 파일을 찾을 수 없습니다.\n"
+            f"다음 위치에 fastfood.csv가 있는지 확인해주세요:\n\n{csv_path}"
+        )
+        st.stop()
+
+    df = pd.read_csv(csv_path)
     return df
-
-
 
 def add_health_score(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
