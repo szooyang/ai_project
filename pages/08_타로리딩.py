@@ -53,6 +53,11 @@ card_info = {}
 for card in tarot_json["cards"]:
     card_info[card["name"]] = card
 
+csv_info = {}
+
+for _, row in df.iterrows():
+    csv_info[row["card_name"]] = row
+
 # -----------------------
 # 제목
 # -----------------------
@@ -70,6 +75,20 @@ st.markdown(
 # -----------------------
 # 질문
 # -----------------------
+reading_type = st.selectbox(
+    "질문 유형",
+    ["일반", "연애", "진로"]
+)
+
+if reading_type == "연애":
+    meaning = csv_card["love_meaning"]
+
+elif reading_type == "진로":
+    meaning = csv_card["career_meaning"]
+
+else:
+    meaning = csv_card["upright_meaning"]
+
 question = st.text_area(
     "무엇이 궁금한가요?",
     placeholder="예) 올해 진로는 어떻게 될까요?"
@@ -133,23 +152,19 @@ if st.button("🃏 카드 셔플"):
             st.write(orientation)
 
             # 의미 선택
-            if orientation == "정방향":
+            csv_card = csv_info.get(card_name)
 
-                if "meanings" in card_data:
-                    meanings = card_data["meanings"].get("light", [])
-                    meaning = random.choice(meanings)
+            if csv_card is not None:
+
+                if orientation == "정방향":
+                    meaning = csv_card["upright_meaning"]
 
                 else:
-                    meaning = "새로운 가능성을 의미합니다."
+                    meaning = csv_card["reversed_meaning"]
 
             else:
 
-                if "meanings" in card_data:
-                    meanings = card_data["meanings"].get("shadow", [])
-                    meaning = random.choice(meanings)
-
-                else:
-                    meaning = "주의가 필요한 상황입니다."
+                meaning = "해석 정보가 없습니다."
 
             st.info(meaning)
 
