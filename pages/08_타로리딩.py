@@ -38,7 +38,7 @@ def load_data():
 df, tarot_json = load_data()
 
 # -----------------------
-# 카드 이미지 매핑
+# 이미지 매핑
 # -----------------------
 image_map = {}
 
@@ -46,17 +46,20 @@ for card in tarot_json["cards"]:
     image_map[card["name"]] = card["img"]
 
 # -----------------------
-# 카드 상세정보 매핑
+# 카드 정보 매핑
 # -----------------------
 card_info = {}
 
 for card in tarot_json["cards"]:
     card_info[card["name"]] = card
 
+# -----------------------
+# CSV 정보 매핑
+# -----------------------
 csv_info = {}
 
 for _, row in df.iterrows():
-    csv_info[row["card_name"]] = row
+    csv_info[str(row["card_name"]).strip()] = row
 
 # -----------------------
 # 제목
@@ -73,29 +76,23 @@ st.markdown(
 )
 
 # -----------------------
-# 질문
+# 질문 유형
 # -----------------------
 reading_type = st.selectbox(
     "질문 유형",
     ["일반", "연애", "진로"]
 )
 
-if reading_type == "연애":
-    meaning = csv_card["love_meaning"]
-
-elif reading_type == "진로":
-    meaning = csv_card["career_meaning"]
-
-else:
-    meaning = csv_card["upright_meaning"]
-
+# -----------------------
+# 질문 입력
+# -----------------------
 question = st.text_area(
     "무엇이 궁금한가요?",
     placeholder="예) 올해 진로는 어떻게 될까요?"
 )
 
 # -----------------------
-# 스프레드 선택
+# 스프레드
 # -----------------------
 spread = st.radio(
     "스프레드 선택",
@@ -104,7 +101,7 @@ spread = st.radio(
 )
 
 # -----------------------
-# 셔플
+# 카드 셔플
 # -----------------------
 if st.button("🃏 카드 셔플"):
 
@@ -120,7 +117,6 @@ if st.button("🃏 카드 셔플"):
     if spread == "1장 리딩":
         selected_cards = random.sample(cards, 1)
         positions = ["현재"]
-
     else:
         selected_cards = random.sample(cards, 3)
         positions = ["과거", "현재", "미래"]
@@ -135,9 +131,9 @@ if st.button("🃏 카드 셔플"):
 
         orientation = random.choice(["정방향", "역방향"])
 
-        card_data = card_info.get(card_name, {})
-
         image_file = image_map.get(card_name)
+
+        csv_card = csv_info.get(card_name)
 
         with cols[i]:
 
@@ -146,21 +142,30 @@ if st.button("🃏 카드 셔플"):
             image_path = image_dir / image_file
 
             if image_path.exists():
-                st.image(image_path)
+                st.image(str(image_path))
 
             st.markdown(f"### {card_name}")
             st.write(orientation)
 
+            # -----------------------
             # 의미 선택
-            csv_card = csv_info.get(card_name)
-
+            # -----------------------
             if csv_card is not None:
 
-                if orientation == "정방향":
-                    meaning = csv_card["upright_meaning"]
+                if reading_type == "연애":
+
+                    meaning = str(csv_card["love_meaning"])
+
+                elif reading_type == "진로":
+
+                    meaning = str(csv_card["career_meaning"])
 
                 else:
-                    meaning = csv_card["reversed_meaning"]
+
+                    if orientation == "정방향":
+                        meaning = str(csv_card["upright_meaning"])
+                    else:
+                        meaning = str(csv_card["reversed_meaning"])
 
             else:
 
@@ -179,39 +184,30 @@ if st.button("🃏 카드 셔플"):
     # -----------------------
     st.header("✨ 종합 리딩")
 
-    reading = ""
-
     if spread == "1장 리딩":
 
-        reading += f"""
+        reading = f"""
 현재 상황에 대한 조언 카드가 나타났습니다.
 
 {summary[0]}
 
-이 카드는 지금의 상황을 객관적으로 바라보고,
-카드가 전달하는 메시지를 참고하라는 의미를 담고 있습니다.
+이 카드는 현재의 상황을 되돌아보고
+앞으로의 방향을 고민해보라는 메시지를 담고 있습니다.
 """
 
     else:
 
-        reading += f"""
-질문: {question}
-
-과거에는 현재 상황의 원인이 되는 사건이나 경험이 있었음을 보여줍니다.
+        reading = f"""
+질문 : {question}
 
 {summary[0]}
 
-현재는 지금 가장 중요한 에너지를 나타냅니다.
-
 {summary[1]}
-
-미래는 현재의 흐름이 이어질 경우 예상되는 방향성을 의미합니다.
 
 {summary[2]}
 
-세 장의 카드를 종합하면,
-현재의 경험을 통해 성장하고 변화하는 과정에 있으며,
-자신의 선택과 행동에 따라 더 좋은 방향으로 나아갈 수 있음을 시사합니다.
+세 장의 카드를 종합하면 현재 상황을 이해하고,
+앞으로의 선택에 신중함과 자신감을 함께 가져야 함을 의미합니다.
 """
 
     st.success(reading)
@@ -219,7 +215,7 @@ if st.button("🃏 카드 셔플"):
     # -----------------------
     # 키워드
     # -----------------------
-    st.header("🔑 핵심 키워드")
+    st.header("🔑 카드 키워드")
 
     keyword_set = []
 
@@ -232,7 +228,8 @@ if st.button("🃏 카드 셔플"):
 
     keyword_set = list(dict.fromkeys(keyword_set))
 
-    st.write(" · ".join(keyword_set[:12]))
+    if len(keyword_set) > 0:
+        st.write(" · ".join(keyword_set))
 
     # -----------------------
     # 생각해볼 질문
@@ -245,11 +242,11 @@ if st.button("🃏 카드 셔플"):
 
         if "Questions to Ask" in card:
 
-            question_list = card["Questions to Ask"]
+            q_list = card["Questions to Ask"]
 
-            if len(question_list) > 0:
+            if len(q_list) > 0:
                 st.markdown(
-                    f"- {random.choice(question_list)}"
+                    f"- {random.choice(q_list)}"
                 )
 
     st.divider()
