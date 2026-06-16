@@ -172,18 +172,17 @@ if st.session_state.deck_cards:
 
             card = card_info.get(card_name, {})
 
-            if "keywords_ko" in card:
+if "keywords_ko" in card:
 
-                keywords.extend(
-                card["keywords_ko"][:4]
-            )
+    keywords.extend(
+        card["keywords_ko"][:4]
+    )
 
-            elif "keywords" in card:
+elif "keywords" in card:
 
-                keywords.extend(
-                card["keywords"][:4]
-            )
-
+    keywords.extend(
+        card["keywords"][:4]
+    )
         keywords = list(dict.fromkeys(keywords))
 
         if keywords:
