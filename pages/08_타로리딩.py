@@ -136,7 +136,14 @@ if st.session_state.deck_cards:
                 if image_path.exists():
                     st.image(str(image_path), use_container_width=True)
 
-                st.markdown(f"**{card_name}**")
+                name_ko = card.get(
+                    "name_ko",
+                    card_name
+                )
+
+                st.markdown(
+                    f"**{name_ko} ({card_name})**"
+                )
                 st.write(orientation)
                 st.info(meaning)
 
@@ -165,8 +172,17 @@ if st.session_state.deck_cards:
 
             card = card_info.get(card_name, {})
 
-            if "keywords" in card:
-                keywords.extend(card["keywords"][:4])
+            if "keywords_ko" in card:
+
+                keywords.extend(
+                card["keywords_ko"][:4]
+            )
+
+            elif "keywords" in card:
+
+                keywords.extend(
+                card["keywords"][:4]
+            )
 
         keywords = list(dict.fromkeys(keywords))
 
@@ -179,11 +195,22 @@ if st.session_state.deck_cards:
 
             card = card_info.get(card_name, {})
 
-            if "Questions to Ask" in card:
+            if "questions_ko" in card:
 
-                q = card["Questions to Ask"]
+                q = card["questions_ko"]
 
                 if q:
-                    st.markdown(f"- {random.choice(q)}")
+                    st.markdown(
+                        f"- {random.choice(q)}"
+                    )
+
+        elif "Questions to Ask" in card:
+
+            q = card["Questions to Ask"]
+
+            if q:
+                st.markdown(
+                    f"- {random.choice(q)}"
+                )
 
         st.caption("본 결과는 오락 및 자기성찰 목적으로만 활용하세요.")
