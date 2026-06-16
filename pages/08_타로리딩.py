@@ -189,28 +189,28 @@ if st.session_state.deck_cards:
         if keywords:
             st.write(" · ".join(keywords))
 
-        st.header("💭 스스로에게 던져볼 질문")
+st.header("💭 스스로에게 던져볼 질문")
 
-        for card_name in st.session_state.chosen_cards:
+for card_name in st.session_state.chosen_cards:
 
-            card = card_info.get(card_name, {})
+    card = card_info.get(card_name, {})
 
-            if "questions_ko" in card:
+    if "questions_ko" in card:
 
-                q = card["questions_ko"]
+        q = card["questions_ko"]
 
-                if q:
-                    st.markdown(
-                        f"- {random.choice(q)}"
-                    )
+        if q:
+            st.markdown(
+                f"- {random.choice(q)}"
+            )
 
-        elif "Questions to Ask" in card:
+    elif "Questions to Ask" in card:
 
-            q = card["Questions to Ask"]
+        q = card["Questions to Ask"]
 
-            if q:
-                st.markdown(
-                    f"- {random.choice(q)}"
-                )
+        if q:
+            st.markdown(
+                f"- {random.choice(q)}"
+            )
 
         st.caption("본 결과는 오락 및 자기성찰 목적으로만 활용하세요.")
