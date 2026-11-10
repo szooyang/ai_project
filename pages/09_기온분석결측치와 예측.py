@@ -37,7 +37,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 file_candidates = [
     BASE_DIR / "temperature.csv",
-    BASE_DIR / "temperature.csv",
     BASE_DIR / "temperature"
 ]
 
