@@ -8,30 +8,29 @@ from pathlib import Path
 from sklearn.linear_model import LinearRegression
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_absolute_error
 
 
-# -----------------------------------------
+# =========================================
 # 1. 페이지 설정
-# -----------------------------------------
+# =========================================
 st.set_page_config(
-    page_title="월별 미래 기온 예측",
+    page_title="미래 기온 예측",
     page_icon="🌡️",
     layout="wide"
 )
 
-st.title("🌡️ 인공지능 월별 미래 기온 예측")
+st.title("🌡️ 인공지능 미래 기온 예측")
 st.write(
-    "과거의 월별 평균기온 데이터를 학습하여 "
-    "원하는 연도의 평균기온을 예측해 봅시다."
+    "결측치 처리 방법과 기계학습 알고리즘에 따라 "
+    "미래 기온 예측 결과가 어떻게 달라지는지 알아봅시다."
 )
 
 st.divider()
 
 
-# -----------------------------------------
+# =========================================
 # 2. CSV 파일 불러오기
-# -----------------------------------------
+# =========================================
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 file_path = BASE_DIR / "temperature.csv"
@@ -39,7 +38,7 @@ file_path = BASE_DIR / "temperature.csv"
 if not file_path.exists():
     st.error(
         "temperature.csv 파일을 찾을 수 없습니다. "
-        "프로젝트 최상위 폴더에 CSV 파일을 저장해 주세요."
+        "GitHub 최상위 폴더에 CSV 파일이 있는지 확인하세요."
     )
     st.stop()
 
@@ -50,27 +49,27 @@ try:
         df = pd.read_csv(file_path, encoding="utf-8-sig")
 
 except Exception as e:
-    st.error(f"CSV 파일을 읽을 수 없습니다: {e}")
+    st.error(f"CSV 파일 읽기 오류: {e}")
     st.stop()
 
 
-# -----------------------------------------
-# 3. 필요한 데이터만 선택
-# -----------------------------------------
+# =========================================
+# 3. 필요한 열만 사용
+# =========================================
 date_column = "일시"
 temp_column = "평균기온(℃)"
 
 if date_column not in df.columns or temp_column not in df.columns:
-    st.error("CSV 파일의 열 이름을 확인해 주세요.")
+    st.error(
+        "CSV 파일에 '일시' 또는 '평균기온(℃)' 열이 없습니다."
+    )
     st.stop()
 
 
-# -----------------------------------------
+# =========================================
 # 4. 날짜 변환
-# -----------------------------------------
-# CSV의 날짜는 Oct-07 형태
-# 첫 데이터는 1907년으로 처리
-# 연도가 99에서 00으로 바뀌면 세기를 변경
+# =========================================
+# Oct-07 형식의 날짜를 1907년부터 순서대로 변환
 
 def convert_dates(values):
 
@@ -82,11 +81,9 @@ def convert_dates(values):
 
         try:
             month_text, year_text = str(value).strip().split("-")
-
             year_number = int(year_text)
 
             if previous_year is not None:
-
                 if previous_year - year_number > 50:
                     century += 100
 
@@ -113,42 +110,58 @@ df[temp_column] = pd.to_numeric(
     errors="coerce"
 )
 
-df = df.dropna(
-    subset=["날짜", temp_column]
-)
+df = df.dropna(subset=["날짜"])
 
 df["연도"] = df["날짜"].dt.year
 df["월"] = df["날짜"].dt.month
 
-# 1907년부터 2025년까지 사용
+# 1907~2025년 데이터만 사용
 df = df[
     (df["연도"] >= 1907) &
     (df["연도"] <= 2025)
 ].copy()
 
 # 평균기온만 사용
-df = df[
-    ["연도", "월", temp_column]
-]
+df = df[["연도", "월", temp_column]]
 
-if df.empty:
-    st.error("1907~2025년 데이터가 없습니다.")
-    st.stop()
-
-
-# -----------------------------------------
-# 5. 월 선택
-# -----------------------------------------
-st.subheader("① 분석할 월 선택")
-
-selected_month = st.selectbox(
-    "평균기온을 분석할 월을 선택하세요.",
-    options=list(range(1, 13)),
-    format_func=lambda x: f"{x}월"
+# 같은 연도와 월에 여러 데이터가 있다면 평균 처리
+df = (
+    df.groupby(["연도", "월"], as_index=False)[temp_column]
+    .mean()
 )
 
 
-# 선택한 월의 데이터
+# =========================================
+# 5. 사용자 입력
+# =========================================
+st.subheader("① 예측 조건 설정")
+
+col1, col2 = st.columns(2)
+
+with col1:
+    selected_month = st.selectbox(
+        "분석할 월을 선택하세요.",
+        options=list(range(1, 13)),
+        format_func=lambda x: f"{x}월"
+    )
+
+with col2:
+    forecast_year = st.number_input(
+        "예측할 연도를 입력하세요.",
+        min_value=2026,
+        max_value=2100,
+        value=2030,
+        step=1
+    )
+
+st.caption(
+    f"선택한 예측 대상: {forecast_year}년 {selected_month}월 평균기온"
+)
+
+
+# =========================================
+# 6. 선택한 월의 데이터 추출
+# =========================================
 month_df = df[
     df["월"] == selected_month
 ].copy()
@@ -164,156 +177,240 @@ if len(month_df) < 10:
     st.stop()
 
 
-# -----------------------------------------
-# 6. 과거 평균기온 그래프
-# -----------------------------------------
+# 연도별 자료 구성
+# 실제 관측값이 없는 연도도 결측치로 표시
+first_year = int(month_df["연도"].min())
+
+year_index = pd.Index(
+    range(first_year, 2026),
+    name="연도"
+)
+
+temperature_series = (
+    month_df.set_index("연도")[temp_column]
+    .reindex(year_index)
+)
+
+missing_count = int(temperature_series.isna().sum())
+
 st.divider()
-st.subheader(f"② {selected_month}월의 연도별 평균기온 변화")
 
-fig_history = go.Figure()
+st.subheader("② 결측치 현황")
 
-fig_history.add_trace(
-    go.Scatter(
-        x=month_df["연도"],
-        y=month_df[temp_column],
-        mode="lines+markers",
-        name="실제 평균기온",
-        line=dict(
-            color="#2196F3",
-            width=2
-        ),
-        marker=dict(size=4)
-    )
-)
+col1, col2, col3 = st.columns(3)
 
-fig_history.update_layout(
-    title=f"1907~2025년 {selected_month}월 평균기온 변화",
-    xaxis_title="연도",
-    yaxis_title="평균기온(℃)",
-    template="plotly_white",
-    hovermode="x unified",
-    height=450
-)
+with col1:
+    st.metric("분석 대상 월", f"{selected_month}월")
 
-st.plotly_chart(
-    fig_history,
-    use_container_width=True
-)
+with col2:
+    st.metric("전체 연도 수", f"{len(temperature_series)}년")
+
+with col3:
+    st.metric("결측치 개수", f"{missing_count}개")
 
 
-# -----------------------------------------
-# 7. 예측 연도 입력
-# -----------------------------------------
+# =========================================
+# 7. 결측치 처리 방법 선택
+# =========================================
 st.divider()
-st.subheader("③ 미래 기온 예측 연도 입력")
+st.subheader("③ 결측치 처리 방법 선택")
 
-forecast_year = st.number_input(
-    "평균기온을 예측할 연도를 입력하세요.",
-    min_value=2026,
-    max_value=2100,
-    value=2030,
-    step=1
+missing_method = st.selectbox(
+    "어떤 방법으로 결측치를 처리할까요?",
+    options=[
+        "제거",
+        "중앙값 대체",
+        "선형보간법"
+    ]
 )
 
-st.write(
-    f"선택한 조건: **{forecast_year}년 {selected_month}월 평균기온**"
-)
-
-
-# -----------------------------------------
-# 8. 학습 데이터 준비
-# -----------------------------------------
-X = month_df[["연도"]]
-y = month_df[temp_column]
-
-# 1907~2025년 데이터를 학습
-# 입력값은 연도, 정답은 해당 월의 평균기온
-
-
-# -----------------------------------------
-# 9. 세 가지 회귀 알고리즘
-# -----------------------------------------
-models = {
-    "선형 회귀": LinearRegression(),
-
-    "의사결정나무 회귀": DecisionTreeRegressor(
-        max_depth=5,
-        min_samples_leaf=5,
-        random_state=42
-    ),
-
-    "랜덤 포레스트 회귀": RandomForestRegressor(
-        n_estimators=200,
-        max_depth=8,
-        min_samples_leaf=5,
-        random_state=42,
-        n_jobs=-1
-    )
+method_description = {
+    "제거": "평균기온이 없는 연도의 데이터를 학습에서 제외합니다.",
+    "중앙값 대체": "선택한 월의 평균기온 중앙값으로 결측치를 채웁니다.",
+    "선형보간법": "앞뒤 연도의 평균기온을 이용하여 결측치를 추정합니다."
 }
 
-
-# -----------------------------------------
-# 10. 알고리즘 학습 및 예측
-# -----------------------------------------
-results = {}
-
-for name, model in models.items():
-
-    model.fit(X, y)
-
-    prediction = model.predict(
-        pd.DataFrame({"연도": [forecast_year]})
-    )[0]
-
-    results[name] = prediction
+st.info(method_description[missing_method])
 
 
-# -----------------------------------------
-# 11. 예측값 출력
-# -----------------------------------------
+# =========================================
+# 8. 알고리즘 선택
+# =========================================
 st.divider()
-st.subheader(
-    f"④ {forecast_year}년 {selected_month}월 평균기온 예측 결과"
+st.subheader("④ 기계학습 알고리즘 선택")
+
+algorithm_name = st.selectbox(
+    "어떤 회귀 알고리즘을 사용할까요?",
+    options=[
+        "선형 회귀",
+        "의사결정나무 회귀",
+        "랜덤 포레스트 회귀"
+    ]
 )
 
-cols = st.columns(3)
 
-colors = {
-    "선형 회귀": "#E91E63",
-    "의사결정나무 회귀": "#2196F3",
-    "랜덤 포레스트 회귀": "#FF9800"
-}
+# =========================================
+# 9. 결측치 처리 함수
+# =========================================
+def handle_missing(series, method):
 
-for col, (name, value) in zip(cols, results.items()):
+    result = series.copy()
 
-    with col:
+    if method == "제거":
 
-        st.metric(
-            label=name,
-            value=f"{value:.2f} ℃"
+        result = result.dropna()
+
+    elif method == "중앙값 대체":
+
+        median_value = result.median()
+
+        result = result.fillna(median_value)
+
+    elif method == "선형보간법":
+
+        result = result.interpolate(
+            method="linear",
+            limit_direction="both"
+        )
+
+        # 양 끝에 결측치가 있을 경우 중앙값으로 보완
+        result = result.fillna(result.median())
+
+    return result
+
+
+# =========================================
+# 10. 회귀 알고리즘 생성 함수
+# =========================================
+def create_model(name):
+
+    if name == "선형 회귀":
+
+        return LinearRegression()
+
+    elif name == "의사결정나무 회귀":
+
+        return DecisionTreeRegressor(
+            max_depth=5,
+            min_samples_leaf=5,
+            random_state=42
+        )
+
+    elif name == "랜덤 포레스트 회귀":
+
+        return RandomForestRegressor(
+            n_estimators=200,
+            max_depth=8,
+            min_samples_leaf=5,
+            random_state=42,
+            n_jobs=-1
         )
 
 
-# -----------------------------------------
-# 12. 예측 결과 비교 그래프
-# -----------------------------------------
+# =========================================
+# 11. 세 가지 결측치 처리 방법 비교
+# =========================================
 st.divider()
-st.subheader("⑤ 세 가지 알고리즘의 예측 과정 비교")
+st.subheader("⑤ 결측치 처리 방법에 따른 예측 결과 비교")
 
-# 1907~2025년 모델 학습 결과를 그래프로 표시
-# 미래 연도까지 각 모델의 예측선을 연장
+methods = [
+    "제거",
+    "중앙값 대체",
+    "선형보간법"
+]
 
-future_X = pd.DataFrame({
-    "연도": np.arange(1907, int(forecast_year) + 1)
-})
+method_colors = {
+    "제거": "#E91E63",
+    "중앙값 대체": "#2196F3",
+    "선형보간법": "#FF9800"
+}
 
+comparison_results = {}
+comparison_models = {}
+processed_data = {}
+
+for method in methods:
+
+    # 결측치 처리
+    clean_series = handle_missing(
+        temperature_series,
+        method
+    )
+
+    processed_data[method] = clean_series
+
+    # 학습 데이터 준비
+    X_train = pd.DataFrame({
+        "연도": clean_series.index.astype(int)
+    })
+
+    y_train = clean_series.values.astype(float)
+
+    # 알고리즘 생성
+    model = create_model(algorithm_name)
+
+    # 학습
+    model.fit(X_train, y_train)
+
+    # 예측 연도까지 그래프용 데이터 생성
+    graph_years = np.arange(
+        first_year,
+        int(forecast_year) + 1
+    )
+
+    X_graph = pd.DataFrame({
+        "연도": graph_years
+    })
+
+    # 예측
+    graph_predictions = model.predict(X_graph)
+
+    # 미래 예측값
+    future_prediction = model.predict(
+        pd.DataFrame({
+            "연도": [int(forecast_year)]
+        })
+    )[0]
+
+    comparison_results[method] = {
+        "예측값": future_prediction,
+        "학습자료수": len(clean_series),
+        "그래프연도": graph_years,
+        "그래프예측": graph_predictions
+    }
+
+    comparison_models[method] = model
+
+
+# =========================================
+# 12. 선택한 결측치 처리 결과 표시
+# =========================================
+selected_result = comparison_results[missing_method]
+
+st.markdown(
+    f"**선택한 결측치 처리 방법: {missing_method}**"
+)
+
+st.markdown(
+    f"**선택한 알고리즘: {algorithm_name}**"
+)
+
+st.metric(
+    label=f"{forecast_year}년 {selected_month}월 예측 평균기온",
+    value=f"{selected_result['예측값']:.2f} ℃"
+)
+
+
+# =========================================
+# 13. 결측치 처리 방법별 예측 그래프
+# =========================================
 fig = go.Figure()
 
-# 실제 평균기온
+# 실제 관측 기온
 fig.add_trace(
     go.Scatter(
-        x=month_df["연도"],
-        y=month_df[temp_column],
+        x=temperature_series.index,
+        y=temperature_series.values,
         mode="markers",
         name="실제 평균기온",
         marker=dict(
@@ -323,36 +420,42 @@ fig.add_trace(
     )
 )
 
+# 결측치 처리 방법별 예측선
+for method in methods:
 
-# 알고리즘별 학습 결과 및 미래 예측
-for name, model in models.items():
+    result = comparison_results[method]
 
-    predicted_values = model.predict(future_X)
+    is_selected = (method == missing_method)
 
     fig.add_trace(
         go.Scatter(
-            x=future_X["연도"],
-            y=predicted_values,
+            x=result["그래프연도"],
+            y=result["그래프예측"],
             mode="lines",
-            name=name,
+            name=f"{method} 예측",
             line=dict(
-                color=colors[name],
-                width=2.5
-            )
+                color=method_colors[method],
+                width=4 if is_selected else 2,
+                dash="solid" if is_selected else "dash"
+            ),
+            opacity=1.0 if is_selected else 0.65
         )
     )
 
 
 # 미래 예측 연도 표시
 fig.add_vline(
-    x=forecast_year,
-    line_dash="dash",
+    x=int(forecast_year),
+    line_dash="dot",
     line_color="gray",
     annotation_text="예측 연도"
 )
 
 fig.update_layout(
-    title=f"{selected_month}월 평균기온 회귀 알고리즘 비교",
+    title=(
+        f"{selected_month}월 평균기온 - "
+        f"{algorithm_name} / 결측치 처리 방법 비교"
+    ),
     xaxis_title="연도",
     yaxis_title="평균기온(℃)",
     template="plotly_white",
@@ -367,76 +470,119 @@ st.plotly_chart(
 )
 
 
-# -----------------------------------------
-# 13. 알고리즘별 작동 원리
-# -----------------------------------------
+# =========================================
+# 14. 결측치 처리별 예측값 비교표
+# =========================================
+st.subheader("⑥ 결측치 처리 방법별 예측값 비교")
+
+result_table = pd.DataFrame({
+    "결측치 처리 방법": methods,
+    "학습 데이터 수": [
+        comparison_results[m]["학습자료수"]
+        for m in methods
+    ],
+    "예측 평균기온(℃)": [
+        round(comparison_results[m]["예측값"], 2)
+        for m in methods
+    ]
+})
+
+st.dataframe(
+    result_table,
+    use_container_width=True,
+    hide_index=True
+)
+
+
+# =========================================
+# 15. 결측치 처리 방법별 설명
+# =========================================
 st.divider()
-st.subheader("⑥ 회귀 알고리즘별 작동 원리")
+st.subheader("⑦ 결측치 처리 방법 알아보기")
 
-with st.expander("① 선형 회귀"):
+with st.expander("1. 제거"):
 
     st.markdown("""
-    **어떻게 작동할까요?**
+    평균기온이 비어 있는 데이터를 삭제합니다.
 
-    - 과거 연도와 평균기온의 관계를 학습합니다.
-    - 데이터 전체의 경향을 가장 잘 나타내는 직선을 찾습니다.
-    - 학습한 직선을 미래 연도까지 연장하여 예측합니다.
-
-    **그래프 특징**
-
-    - 직선 형태로 예측합니다.
-    - 전체적인 기온 상승 또는 하락 경향을 파악하기 쉽습니다.
-    - 복잡한 기온 변화를 표현하는 데 한계가 있습니다.
+    - 장점: 실제 관측된 데이터만 사용합니다.
+    - 단점: 학습 데이터의 양이 줄어듭니다.
     """)
 
-with st.expander("② 의사결정나무 회귀"):
+with st.expander("2. 중앙값 대체"):
 
     st.markdown("""
-    **어떻게 작동할까요?**
+    선택한 월의 평균기온 중앙값으로 빈칸을 채웁니다.
 
-    - 연도를 기준으로 데이터를 여러 구간으로 나눕니다.
-    - 각 구간에 속한 평균기온의 평균값을 학습합니다.
-    - 새로운 연도가 어느 구간에 속하는지 판단하여 예측합니다.
-
-    **그래프 특징**
-
-    - 계단 모양으로 나타납니다.
-    - 구간에 따라 예측값이 달라집니다.
-    - 학습한 범위를 벗어난 미래에는 마지막 구간의 예측값이 유지됩니다.
+    - 장점: 간단하고 이상값의 영향을 비교적 적게 받습니다.
+    - 단점: 여러 빈칸이 같은 값으로 채워집니다.
     """)
 
-with st.expander("③ 랜덤 포레스트 회귀"):
+with st.expander("3. 선형보간법"):
 
     st.markdown("""
-    **어떻게 작동할까요?**
+    앞뒤 연도의 기온을 이용하여 중간에 비어 있는 값을 추정합니다.
 
-    - 여러 개의 의사결정나무를 만듭니다.
-    - 각 나무가 서로 다른 학습 자료와 조건으로 예측합니다.
-    - 여러 나무의 예측값을 평균하여 최종 예측값을 만듭니다.
-
-    **그래프 특징**
-
-    - 여러 의사결정나무의 결과를 종합합니다.
-    - 하나의 나무에 비해 예측이 안정적일 수 있습니다.
-    - 학습 범위를 벗어난 미래에는 마지막 구간의 예측값을 중심으로 나타납니다.
+    - 장점: 주변 데이터의 변화 경향을 반영할 수 있습니다.
+    - 단점: 실제 기온 변화가 직선 형태가 아닐 수 있습니다.
     """)
 
 
-# -----------------------------------------
-# 14. 수업 정리
-# -----------------------------------------
+# =========================================
+# 16. 알고리즘별 작동 원리
+# =========================================
 st.divider()
+st.subheader("⑧ 회귀 알고리즘 알아보기")
+
+with st.expander("1. 선형 회귀"):
+
+    st.markdown("""
+    과거 연도와 평균기온의 관계를 직선으로 학습합니다.
+
+    - 전체적인 상승 또는 하락 경향을 파악합니다.
+    - 미래 연도까지 직선을 연장하여 예측합니다.
+    """)
+
+with st.expander("2. 의사결정나무 회귀"):
+
+    st.markdown("""
+    연도에 따라 데이터를 여러 구간으로 나눕니다.
+
+    - 각 구간의 평균기온을 학습합니다.
+    - 새로운 연도가 어느 구간에 속하는지 판단합니다.
+    - 그래프가 계단 모양으로 나타납니다.
+    """)
+
+with st.expander("3. 랜덤 포레스트 회귀"):
+
+    st.markdown("""
+    여러 개의 의사결정나무를 만들어 결과를 종합합니다.
+
+    - 여러 나무가 각각 기온을 예측합니다.
+    - 예측값들의 평균을 최종 결과로 사용합니다.
+    - 하나의 나무에 의존하는 것보다 안정적일 수 있습니다.
+    """)
+
+
+# =========================================
+# 17. 마무리
+# =========================================
+st.divider()
+
 st.subheader("💡 오늘의 학습 정리")
 
 st.markdown("""
-- 같은 기온 데이터라도 알고리즘에 따라 예측 결과가 달라집니다.
-- 선형 회귀는 전체적인 경향을 직선으로 학습합니다.
-- 의사결정나무는 데이터를 여러 구간으로 나누어 학습합니다.
-- 랜덤 포레스트는 여러 의사결정나무의 예측을 종합합니다.
-- 예측값은 실제 미래의 기온과 다를 수 있습니다.
+1. 결측치를 처리하는 방법에는 여러 가지가 있습니다.
+2. 같은 데이터라도 결측치 처리 방법에 따라 학습 데이터가 달라집니다.
+3. 같은 학습 데이터라도 회귀 알고리즘에 따라 예측값이 달라집니다.
+4. 예측값이 다르다고 해서 반드시 어느 한쪽이 정답인 것은 아닙니다.
+5. 실제 미래 기온은 다양한 기상 및 환경 요인의 영향을 받습니다.
 """)
 
 st.warning(
-    "이 앱은 기계학습의 원리를 이해하기 위한 교육용 프로그램입니다. "
-    "미래 기온을 실제로 맞히는 기상예보 프로그램은 아닙니다."
+    "이 프로그램은 기계학습 원리를 배우기 위한 교육용 프로그램입니다. "
+    "연도만을 입력 특성으로 사용하므로 실제 기상예보의 정확도를 "
+    "보장하지 않습니다. 특히 의사결정나무와 랜덤 포레스트는 "
+    "학습 범위를 벗어난 미래 연도에서 마지막 구간의 예측값을 "
+    "유지하는 특성이 있습니다."
 )
