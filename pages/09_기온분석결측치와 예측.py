@@ -34,11 +34,11 @@ st.divider()
 # -----------------------------------------
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-file_path = BASE_DIR / "temperature(3).csv"
+file_path = BASE_DIR / "temperature.csv"
 
 if not file_path.exists():
     st.error(
-        "temperature(3).csv 파일을 찾을 수 없습니다. "
+        "temperature.csv 파일을 찾을 수 없습니다. "
         "프로젝트 최상위 폴더에 CSV 파일을 저장해 주세요."
     )
     st.stop()
