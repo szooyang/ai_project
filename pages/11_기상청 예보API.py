@@ -161,4 +161,6 @@ try:
     st.dataframe(display_df, use_container_width=True, hide_index=True)
 
 except Exception as e:
-    st.error(f"오류가 발생했습니다: {e}")
+        # 에러 메시지에 혹시 포함될 수 있는 API 키를 '***'로 가려서 출력
+        safe_msg = str(e).replace(AUTH_KEY, "***")
+        st.error(f"오류가 발생했습니다: {safe_msg}")
