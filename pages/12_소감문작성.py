@@ -1,4 +1,3 @@
-import threading
 import time
 import streamlit as st
 from google import genai
@@ -132,7 +131,7 @@ extra_thought = st.text_area(
 
 st.divider()
 
-# 6. 소감문 생성 버튼 및 경과 시간 안내 처리
+# 6. 소감문 생성 버튼 및 결과 출력
 generate_btn = st.button("✨ 소감문 생성하기", type="primary", use_container_width=True)
 
 if generate_btn:
@@ -162,60 +161,34 @@ if generate_btn:
    - 제목이나 불필요한 인사말 없이 소감문 본문만 출력하세요.
 """
 
-        # 백그라운드 스레드에서 Gemini API를 실행해 경과 시간 안내를 실시간으로 갱신
-        worker_state = {"done": False, "text": None, "error": None}
-
-        def call_gemini_worker():
-            max_retries = 3
+        with st.spinner("선택한 단어를 엮어 멋진 소감문을 작성하고 있습니다..."):
             try:
+                max_retries = 3
+                response = None
+
                 for attempt in range(max_retries):
                     try:
-                        res = client.models.generate_content(
+                        response = client.models.generate_content(
                             model="gemini-3.8-flash",
                             contents=prompt,
                             config=types.GenerateContentConfig(
                                 temperature=0.7,
                             )
                         )
-                        worker_state["text"] = res.text.strip() if res.text else ""
-                        return
-                    except Exception as exc:
-                        err_str = str(exc)
-                        if "503" in err_str or "UNAVAILABLE" in err_str:
+                        break
+                    except Exception as e:
+                        error_msg = str(e)
+                        if "503" in error_msg or "UNAVAILABLE" in error_msg:
                             if attempt < max_retries - 1:
                                 time.sleep(2 * (attempt + 1))
                                 continue
-                        raise exc
-            except Exception as exc:
-                worker_state["error"] = exc
-            finally:
-                worker_state["done"] = True
+                        raise e
 
-        status_box = st.empty()
-        start_time = time.time()
+                st.session_state["generated_essay"] = response.text.strip()
+                st.session_state["generated_target_length"] = target_length
 
-        thread = threading.Thread(target=call_gemini_worker, daemon=True)
-        thread.start()
-
-        while not worker_state["done"]:
-            elapsed = time.time() - start_time
-            if elapsed >= 60:
-                status_box.error("2~3분후에 다시 시도해주세요. 불편을드려 죄송합니다.")
-            elif elapsed >= 30:
-                status_box.warning("연결이 지연되서 늦어지고 있습니다. 조금만 기다려주세요.")
-            else:
-                status_box.info(f"선택한 단어를 엮어 멋진 소감문을 작성하고 있습니다... ({int(elapsed)}초 경과)")
-            time.sleep(1)
-
-        status_box.empty()
-
-        if worker_state["error"] is not None:
-            st.error(f"소감문 생성 중 오류가 발생했습니다: {worker_state['error']}")
-        elif not worker_state["text"]:
-            st.error("소감문 내용을 받지 못했습니다. 잠시 후 다시 시도해 주세요.")
-        else:
-            st.session_state["generated_essay"] = worker_state["text"]
-            st.session_state["generated_target_length"] = target_length
+            except Exception as e:
+                st.error(f"소감문 생성 중 오류가 발생했습니다: {e}")
 
 # 생성된 소감문이 있을 때 화면 출력 및 초기화 버튼 표시
 if "generated_essay" in st.session_state and st.session_state["generated_essay"]:
