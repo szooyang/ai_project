@@ -1,3 +1,4 @@
+import threading
 import time
 import streamlit as st
 from google import genai
@@ -21,7 +22,13 @@ except Exception as e:
     st.error(f"⚠️ API 초기화 중 오류가 발생했습니다: {e}")
     st.stop()
 
-# 3. 30개 핵심 단어 및 뜻 데이터 정의 (카테고리별 구성)
+# 3. 초기화용 카운터 설정
+if "reset_id" not in st.session_state:
+    st.session_state["reset_id"] = 0
+
+reset_id = st.session_state["reset_id"]
+
+# 4. 30개 핵심 단어 및 뜻 데이터 정의 (카테고리별 구성)
 KEYWORDS_DICT = {
     "💡 깨달음과 인식 변화": [
         "깨달음 (몰랐던 사실이나 가치를 새롭게 알게 됨)",
@@ -63,7 +70,7 @@ KEYWORDS_DICT = {
     ]
 }
 
-# 4. 화면 UI 구성
+# 5. 화면 UI 구성
 st.title("✍️ 나만의 교육 소감문 작성 도우미")
 st.markdown("교육 주제와 내가 느낀 핵심 키워드를 선택하면, **나만의 진정성 있는 소감문 초안**을 만들어 줍니다.")
 st.divider()
@@ -76,7 +83,7 @@ with col1:
     topic = st.text_input(
         "교육(행사) 주제를 입력하세요",
         placeholder="예: 학교폭력 예방 교육, 장애인식개선 교육, 기후위기와 환경보호 등",
-        key="topic_input"
+        key=f"topic_input_{reset_id}"
     )
 
 with col2:
@@ -87,7 +94,7 @@ with col2:
         value=400,
         step=50,
         help="100자부터 2,000자까지 50자 단위로 설정할 수 있습니다.",
-        key="target_length_input"
+        key=f"target_length_input_{reset_id}"
     )
 
 st.divider()
@@ -101,7 +108,7 @@ selected_items = []
 for category, words in KEYWORDS_DICT.items():
     with st.expander(category, expanded=True):
         for word in words:
-            if st.checkbox(word, key=word):
+            if st.checkbox(word, key=f"kw_{reset_id}_{word}"):
                 selected_items.append(word)
 
 num_selected = len(selected_items)
@@ -120,12 +127,12 @@ extra_thought = st.text_area(
     "인상 깊었던 장면, 나의 전공/진로와의 연결점, 간단한 느낀 점 등을 자유롭게 적어주세요.",
     placeholder="예: 영상 속 피해 학생의 인터뷰가 가장 기억에 남았다. 앞으로 친구의 말에 더 귀 기울이는 태도를 가져야겠다고 생각했다.",
     height=100,
-    key="extra_thought_input"
+    key=f"extra_thought_input_{reset_id}"
 )
 
 st.divider()
 
-# 5. 소감문 생성 버튼 및 결과 출력
+# 6. 소감문 생성 버튼 및 경과 시간 안내 처리
 generate_btn = st.button("✨ 소감문 생성하기", type="primary", use_container_width=True)
 
 if generate_btn:
@@ -155,34 +162,60 @@ if generate_btn:
    - 제목이나 불필요한 인사말 없이 소감문 본문만 출력하세요.
 """
 
-        with st.spinner("선택한 단어를 엮어 멋진 소감문을 작성하고 있습니다..."):
-            try:
-                max_retries = 3
-                response = None
+        # 백그라운드 스레드에서 Gemini API를 실행해 경과 시간 안내를 실시간으로 갱신
+        worker_state = {"done": False, "text": None, "error": None}
 
+        def call_gemini_worker():
+            max_retries = 3
+            try:
                 for attempt in range(max_retries):
                     try:
-                        response = client.models.generate_content(
+                        res = client.models.generate_content(
                             model="gemini-3.8-flash",
                             contents=prompt,
                             config=types.GenerateContentConfig(
                                 temperature=0.7,
                             )
                         )
-                        break
-                    except Exception as e:
-                        error_msg = str(e)
-                        if "503" in error_msg or "UNAVAILABLE" in error_msg:
+                        worker_state["text"] = res.text.strip() if res.text else ""
+                        return
+                    except Exception as exc:
+                        err_str = str(exc)
+                        if "503" in err_str or "UNAVAILABLE" in err_str:
                             if attempt < max_retries - 1:
                                 time.sleep(2 * (attempt + 1))
                                 continue
-                        raise e
+                        raise exc
+            except Exception as exc:
+                worker_state["error"] = exc
+            finally:
+                worker_state["done"] = True
 
-                st.session_state["generated_essay"] = response.text.strip()
-                st.session_state["generated_target_length"] = target_length
+        status_box = st.empty()
+        start_time = time.time()
 
-            except Exception as e:
-                st.error(f"소감문 생성 중 오류가 발생했습니다: {e}")
+        thread = threading.Thread(target=call_gemini_worker, daemon=True)
+        thread.start()
+
+        while not worker_state["done"]:
+            elapsed = time.time() - start_time
+            if elapsed >= 60:
+                status_box.error("2~3분후에 다시 시도해주세요. 불편을드려 죄송합니다.")
+            elif elapsed >= 30:
+                status_box.warning("연결이 지연되서 늦어지고 있습니다. 조금만 기다려주세요.")
+            else:
+                status_box.info(f"선택한 단어를 엮어 멋진 소감문을 작성하고 있습니다... ({int(elapsed)}초 경과)")
+            time.sleep(1)
+
+        status_box.empty()
+
+        if worker_state["error"] is not None:
+            st.error(f"소감문 생성 중 오류가 발생했습니다: {worker_state['error']}")
+        elif not worker_state["text"]:
+            st.error("소감문 내용을 받지 못했습니다. 잠시 후 다시 시도해 주세요.")
+        else:
+            st.session_state["generated_essay"] = worker_state["text"]
+            st.session_state["generated_target_length"] = target_length
 
 # 생성된 소감문이 있을 때 화면 출력 및 초기화 버튼 표시
 if "generated_essay" in st.session_state and st.session_state["generated_essay"]:
@@ -205,13 +238,6 @@ if "generated_essay" in st.session_state and st.session_state["generated_essay"]
     st.caption("⚠️ 생성된 글은 초안입니다. 복사한 뒤 자신의 생각과 표현으로 조금씩 다듬어 제출해 보세요!")
 
     if st.button("🔄 초기화하기", use_container_width=True):
-        st.session_state["topic_input"] = ""
-        st.session_state["target_length_input"] = 400
-        st.session_state["extra_thought_input"] = ""
+        st.session_state["reset_id"] += 1
         st.session_state["generated_essay"] = ""
-
-        for words in KEYWORDS_DICT.values():
-            for word in words:
-                st.session_state[word] = False
-
         st.rerun()
