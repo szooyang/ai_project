@@ -1,3 +1,4 @@
+import time
 import streamlit as st
 from google import genai
 from google.genai import types
@@ -158,13 +159,26 @@ if generate_btn:
 
         with st.spinner("선택한 단어를 엮어 멋진 소감문을 작성하고 있습니다..."):
             try:
-                response = client.models.generate_content(
-                    model="gemini-3.8-flash",
-                    contents=prompt,
-                    config=types.GenerateContentConfig(
-                        temperature=0.7,
-                    )
-                )
+                max_retries = 3
+                response = None
+
+                for attempt in range(max_retries):
+                    try:
+                        response = client.models.generate_content(
+                            model="gemini-3.8-flash",
+                            contents=prompt,
+                            config=types.GenerateContentConfig(
+                                temperature=0.7,
+                            )
+                        )
+                        break
+                    except Exception as e:
+                        error_msg = str(e)
+                        if "503" in error_msg or "UNAVAILABLE" in error_msg:
+                            if attempt < max_retries - 1:
+                                time.sleep(2 * (attempt + 1))
+                                continue
+                        raise e
                 
                 result_text = response.text.strip()
                 
