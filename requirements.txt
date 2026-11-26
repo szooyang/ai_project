@@ -9,3 +9,4 @@ openpyxl
 scikit-learn
 Pillow
 requests
+google-genai
