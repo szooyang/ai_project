@@ -75,7 +75,8 @@ col1, col2 = st.columns([2, 1])
 with col1:
     topic = st.text_input(
         "교육(행사) 주제를 입력하세요",
-        placeholder="예: 학교폭력 예방 교육, 장애인식개선 교육, 기후위기와 환경보호 등"
+        placeholder="예: 학교폭력 예방 교육, 장애인식개선 교육, 기후위기와 환경보호 등",
+        key="topic_input"
     )
 
 with col2:
@@ -85,7 +86,8 @@ with col2:
         max_value=2000,
         value=400,
         step=50,
-        help="100자부터 2,000자까지 50자 단위로 설정할 수 있습니다."
+        help="100자부터 2,000자까지 50자 단위로 설정할 수 있습니다.",
+        key="target_length_input"
     )
 
 st.divider()
@@ -96,14 +98,12 @@ st.caption("소감문에 꼭 담고 싶은 단어를 **최소 5개에서 최대 
 
 selected_items = []
 
-# 4개의 카테고리를 펼쳐서 체크박스로 직관적으로 선택할 수 있게 구성
 for category, words in KEYWORDS_DICT.items():
     with st.expander(category, expanded=True):
         for word in words:
             if st.checkbox(word, key=word):
                 selected_items.append(word)
 
-# 현재 선택된 단어 개수 실시간 안내
 num_selected = len(selected_items)
 if num_selected < 5:
     st.warning(f"현재 **{num_selected}개** 선택됨 (최소 **5개** 이상 선택해야 합니다. 앞으로 {5 - num_selected}개 더 골라주세요!)")
@@ -119,7 +119,8 @@ st.subheader("3️⃣ 나만의 경험 및 생각 추가 (선택 사항)")
 extra_thought = st.text_area(
     "인상 깊었던 장면, 나의 전공/진로와의 연결점, 간단한 느낀 점 등을 자유롭게 적어주세요.",
     placeholder="예: 영상 속 피해 학생의 인터뷰가 가장 기억에 남았다. 앞으로 친구의 말에 더 귀 기울이는 태도를 가져야겠다고 생각했다.",
-    height=100
+    height=100,
+    key="extra_thought_input"
 )
 
 st.divider()
@@ -128,7 +129,6 @@ st.divider()
 generate_btn = st.button("✨ 소감문 생성하기", type="primary", use_container_width=True)
 
 if generate_btn:
-    # 입력값 유효성 검사
     if not topic.strip():
         st.error("❗ 교육 주제를 먼저 입력해 주세요.")
     elif num_selected < 5:
@@ -136,13 +136,11 @@ if generate_btn:
     elif num_selected > 20:
         st.error(f"❗ 핵심 단어를 최대 20개 이하로 선택해 주세요. (현재 {num_selected}개 선택됨)")
     else:
-        # 괄호 안의 뜻을 제외한 순수 단어명만 추출 (예: "깨달음 (몰랐던...)" -> "깨달음")
         clean_keywords = [item.split(" (")[0] for item in selected_items]
         keywords_str = ", ".join(clean_keywords)
 
-        # Gemini에 전달할 프롬프트 구성
         prompt = f"""
-당신은 고등학생의 눈높이에 맞춰 자연스럽고 진정성 있는 교육 소감문을 작성해 주는 글쓰기 도우미입니다.
+당신은 학생의 눈높이에 맞춰 자연스럽고 진정성 있는 교육 소감문을 작성해 주는 글쓰기 도우미입니다.
 아래 조건에 맞춰 학생이 직접 쓴 것처럼 자연스러운 소감문을 작성해 주세요.
 
 [작성 조건]
@@ -152,7 +150,7 @@ if generate_btn:
    - 위 핵심 단어들이 문맥 속에 억지스럽지 않고 자연스럽게 녹아들도록 작성하세요.
 4. 학생이 추가로 입력한 내용: {extra_thought if extra_thought.strip() else "없음 (교육 주제와 핵심 단어를 바탕으로 자연스럽게 구성)"}
 5. 문체 및 어조:
-   - 고등학생이 학교 교육이나 특강을 들은 후 제출하는 소감문 어조('~했다', '~느꼈다', '~다짐했다' 등의 평어체 또는 정중한 해요체/합쇼체 중 학생 소감문에 가장 자연스러운 '~했다/~다' 문체)를 사용하세요.
+   - 학생이 학교 교육이나 특강을 들은 후 제출하는 소감문 어조('~했다', '~느꼈다', '~다짐했다' 등의 자연스러운 소감문 문체)를 사용하세요.
    - 너무 딱딱한 번역투나 AI가 쓴 티가 나는 과장된 표현은 피하고, 솔직하고 진정성 있게 작성하세요.
    - 제목이나 불필요한 인사말 없이 소감문 본문만 출력하세요.
 """
@@ -179,26 +177,41 @@ if generate_btn:
                                 time.sleep(2 * (attempt + 1))
                                 continue
                         raise e
-                
-                result_text = response.text.strip()
-                
-                # 결과 화면 출력
-                st.subheader("📝 완성된 소감문")
-                
-                # 실시간 글자 수 계산
-                char_with_space = len(result_text)
-                char_without_space = len(result_text.replace(" ", "").replace("\n", ""))
-                
-                col_stat1, col_stat2 = st.columns(2)
-                col_stat1.metric("공백 포함 글자 수", f"{char_with_space}자", f"목표 {target_length}자")
-                col_stat2.metric("공백 제외 글자 수", f"{char_without_space}자")
-                
-                st.info("💡 아래 박스 **오른쪽 위의 복사 아이콘(📋)**을 누르면 전체 내용이 한 번에 복사됩니다!")
-                
-                # 우측 상단 원클릭 복사 버튼을 지원하는 st.code 활용 (줄바꿈 wrap_lines=True 적용)
-                st.code(result_text, language=None, wrap_lines=True)
-                
-                st.caption("⚠️ 생성된 글은 초안입니다. 복사한 뒤 자신의 생각과 표현으로 조금씩 다듬어 제출해 보세요!")
+
+                st.session_state["generated_essay"] = response.text.strip()
+                st.session_state["generated_target_length"] = target_length
 
             except Exception as e:
                 st.error(f"소감문 생성 중 오류가 발생했습니다: {e}")
+
+# 생성된 소감문이 있을 때 화면 출력 및 초기화 버튼 표시
+if "generated_essay" in st.session_state and st.session_state["generated_essay"]:
+    result_text = st.session_state["generated_essay"]
+    saved_target = st.session_state.get("generated_target_length", target_length)
+
+    st.subheader("📝 완성된 소감문")
+
+    char_with_space = len(result_text)
+    char_without_space = len(result_text.replace(" ", "").replace("\n", ""))
+
+    col_stat1, col_stat2 = st.columns(2)
+    col_stat1.metric("공백 포함 글자 수", f"{char_with_space}자", f"목표 {saved_target}자")
+    col_stat2.metric("공백 제외 글자 수", f"{char_without_space}자")
+
+    st.info("💡 아래 박스 **오른쪽 위의 복사 아이콘(📋)**을 누르면 전체 내용이 한 번에 복사됩니다!")
+
+    st.code(result_text, language=None, wrap_lines=True)
+
+    st.caption("⚠️ 생성된 글은 초안입니다. 복사한 뒤 자신의 생각과 표현으로 조금씩 다듬어 제출해 보세요!")
+
+    if st.button("🔄 초기화하기", use_container_width=True):
+        st.session_state["topic_input"] = ""
+        st.session_state["target_length_input"] = 400
+        st.session_state["extra_thought_input"] = ""
+        st.session_state["generated_essay"] = ""
+
+        for words in KEYWORDS_DICT.values():
+            for word in words:
+                st.session_state[word] = False
+
+        st.rerun()
