@@ -159,7 +159,7 @@ if generate_btn:
         with st.spinner("선택한 단어를 엮어 멋진 소감문을 작성하고 있습니다..."):
             try:
                 response = client.models.generate_content(
-                    model="gemini-2.5-flash",
+                    model="gemini-3.8-flash",
                     contents=prompt,
                     config=types.GenerateContentConfig(
                         temperature=0.7,
